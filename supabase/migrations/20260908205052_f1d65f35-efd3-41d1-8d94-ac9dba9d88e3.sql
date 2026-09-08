@@ -1,0 +1,1 @@
+CREATE POLICY "Anyone can upload a submission screenshot" ON storage.objects FOR INSERT TO anon, authenticated WITH CHECK (bucket_id = 'submission-screenshots');
