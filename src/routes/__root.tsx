@@ -77,11 +77,17 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "FamilyShield — Scam Check for Families" },
+      {
+        name: "description",
+        content: "A second opinion before your family clicks, pays, or responds.",
+      },
+      { name: "author", content: "FamilyShield" },
+      { property: "og:title", content: "FamilyShield — Scam Check for Families" },
+      {
+        property: "og:description",
+        content: "A second opinion before your family clicks, pays, or responds.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@Lovable" },
