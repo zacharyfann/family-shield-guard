@@ -56,7 +56,7 @@ export const analyzeWithAI = createServerFn({ method: "POST" })
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 25000);
       const res = await fetch(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent",
         {
           method: "POST",
           signal: controller.signal,
