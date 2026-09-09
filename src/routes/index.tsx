@@ -301,6 +301,14 @@ function Index() {
               <p className="mt-2 text-base text-muted-foreground">Category checked: {categoryLabel}</p>
             </div>
 
+            {usedFallback ? (
+              <p className="mt-4 rounded-xl border border-risk-medium bg-risk-medium-surface px-4 py-3 text-base">
+                The detailed review could not be completed just now, so this report uses our built-in
+                scam-pattern checks. Please treat it as a starting point and verify independently.
+              </p>
+            ) : null}
+
+
             <h3 className="mt-8 text-xl font-bold">Why This Score Matters</h3>
 
             <ResultBlock title="Specific evidence & warning signs" items={result.evidence} />
