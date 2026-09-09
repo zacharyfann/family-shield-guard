@@ -1,12 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { analyzeWithAI } from "@/lib/analyze.functions";
 import {
-  analyzeMessage,
   buildShareText,
   RISK_LABEL,
   type AnalysisResult,
 } from "@/lib/analyze";
+
 
 const TITLE = "FamilyShield — Check a Suspicious Text, Email, or Payment Request";
 const DESCRIPTION =
