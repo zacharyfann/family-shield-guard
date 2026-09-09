@@ -41,18 +41,50 @@ function strings(value: unknown): string[] {
     : [];
 }
 
+const IMAGE_ONLY_FALLBACK = (category: string): AnalyzeResponse => ({
+  source: "fallback",
+  risk: "medium",
+  headline: "The photo could not be reviewed just now, so treat this request as unconfirmed.",
+  evidence: [
+    `A ${category.toLowerCase()} image was submitted, but the automatic review of the picture did not complete.`,
+    "Nothing in the image has been confirmed as genuine.",
+  ],
+  unverifiable: [
+    "Whether the sender name, number, or address in the picture really belongs to who it claims.",
+    "Whether any link or logo shown in the picture leads to the real company.",
+  ],
+  doNot: [
+    "Do not click any link or call any number shown in the picture.",
+    "Do not send money, gift cards, or codes based on this message.",
+    "Do not share passwords, one-time codes, or card details.",
+  ],
+  nextSteps: [
+    "Type out the words from the picture and check them here again — text can always be reviewed.",
+    "Contact the company or person using a number you look up yourself, not one in the message.",
+    "Ask another family member to look at it before anyone replies.",
+  ],
+});
+
 export const analyzeWithAI = createServerFn({ method: "POST" })
   .inputValidator((input: Input) => {
     const content = String(input?.content ?? "").trim();
     const category = String(input?.category ?? "Other").slice(0, 60);
-    if (content.length < 10) throw new Error("Message too short");
-    return { content: content.slice(0, 8000), category };
+    const rawImage = typeof input?.imageBase64 === "string" ? input.imageBase64 : "";
+    const imageMimeType =
+      typeof input?.imageMimeType === "string" && /^image\/[a-z0-9.+-]+$/i.test(input.imageMimeType)
+        ? input.imageMimeType
+        : "image/jpeg";
+    const imageBase64 = rawImage.replace(/^data:[^,]+,/, "");
+    if (content.length < 10 && !imageBase64) throw new Error("Nothing to analyze");
+    if (imageBase64.length > 9_000_000) throw new Error("Image too large");
+    return { content: content.slice(0, 8000), category, imageBase64, imageMimeType };
   })
   .handler(async ({ data }): Promise<AnalyzeResponse> => {
-    const fallback = (): AnalyzeResponse => ({
-      ...analyzeMessage(data.content, data.category.toLowerCase()),
-      source: "fallback",
-    });
+    const hasText = data.content.length >= 10;
+    const fallback = (): AnalyzeResponse =>
+      hasText
+        ? { ...analyzeMessage(data.content, data.category.toLowerCase()), source: "fallback" }
+        : IMAGE_ONLY_FALLBACK(data.category);
 
     const apiKey = process.env["GEMINI_API_KEY"];
     if (!apiKey) return fallback();
