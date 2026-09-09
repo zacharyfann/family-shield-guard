@@ -79,10 +79,12 @@ function Index() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [usedFallback, setUsedFallback] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [copied, setCopied] = useState(false);
   const resultsRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
+  const runAnalysis = useServerFn(analyzeWithAI);
 
   const categoryLabel = CATEGORIES.find((c) => c.value === category)?.label ?? "Other";
 
@@ -106,7 +108,7 @@ function Index() {
 
     setLoading(true);
     try {
-      const analysis = analyzeMessage(trimmed, category);
+      const analysis = await runAnalysis({ data: { content: trimmed, category: categoryLabel } });
 
       let screenshotPath: string | null = null;
       if (file) {
@@ -127,7 +129,9 @@ function Index() {
         risk_level: analysis.risk,
       });
 
+      setUsedFallback(analysis.source === "fallback");
       setResult(analysis);
+
       setShowModal(true);
       setCopied(false);
       window.setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 350);
