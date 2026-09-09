@@ -1,7 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
 import { analyzeMessage, type AnalysisResult, type RiskLevel } from "./analyze";
 
-type Input = { content: string; category: string };
+type Input = {
+  content: string;
+  category: string;
+  imageBase64?: string | null;
+  imageMimeType?: string | null;
+};
 
 export type AnalyzeResponse = AnalysisResult & { source: "ai" | "fallback" };
 
