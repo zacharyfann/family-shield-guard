@@ -1,12 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { analyzeWithAI } from "@/lib/analyze.functions";
 import {
-  analyzeMessage,
   buildShareText,
   RISK_LABEL,
   type AnalysisResult,
 } from "@/lib/analyze";
+
 
 const TITLE = "FamilyShield — Check a Suspicious Text, Email, or Payment Request";
 const DESCRIPTION =
@@ -77,10 +79,12 @@ function Index() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [usedFallback, setUsedFallback] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [copied, setCopied] = useState(false);
   const resultsRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
+  const runAnalysis = useServerFn(analyzeWithAI);
 
   const categoryLabel = CATEGORIES.find((c) => c.value === category)?.label ?? "Other";
 
@@ -104,7 +108,7 @@ function Index() {
 
     setLoading(true);
     try {
-      const analysis = analyzeMessage(trimmed, category);
+      const analysis = await runAnalysis({ data: { content: trimmed, category: categoryLabel } });
 
       let screenshotPath: string | null = null;
       if (file) {
@@ -125,7 +129,9 @@ function Index() {
         risk_level: analysis.risk,
       });
 
+      setUsedFallback(analysis.source === "fallback");
       setResult(analysis);
+
       setShowModal(true);
       setCopied(false);
       window.setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 350);
@@ -294,6 +300,14 @@ function Index() {
               <h2 className="mt-4 text-2xl font-bold leading-snug">{result.headline}</h2>
               <p className="mt-2 text-base text-muted-foreground">Category checked: {categoryLabel}</p>
             </div>
+
+            {usedFallback ? (
+              <p className="mt-4 rounded-xl border border-risk-medium bg-risk-medium-surface px-4 py-3 text-base">
+                The detailed review could not be completed just now, so this report uses our built-in
+                scam-pattern checks. Please treat it as a starting point and verify independently.
+              </p>
+            ) : null}
+
 
             <h3 className="mt-8 text-xl font-bold">Why This Score Matters</h3>
 
