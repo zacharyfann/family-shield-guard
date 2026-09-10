@@ -14,39 +14,93 @@ export type Database = {
   }
   public: {
     Tables: {
-      submissions: {
+      caregiver_settings: {
         Row: {
-          category: string
+          alert_enabled: boolean
+          caregiver_email: string | null
           created_at: string
-          feedback_notes: string | null
           id: string
-          raw_content: string
-          risk_level: string | null
-          screenshot_url: string | null
-          status: string
-          user_email: string | null
+          updated_at: string
+          user_id: string
         }
         Insert: {
-          category: string
+          alert_enabled?: boolean
+          caregiver_email?: string | null
           created_at?: string
-          feedback_notes?: string | null
           id?: string
-          raw_content: string
-          risk_level?: string | null
-          screenshot_url?: string | null
-          status?: string
-          user_email?: string | null
+          updated_at?: string
+          user_id: string
         }
         Update: {
+          alert_enabled?: boolean
+          caregiver_email?: string | null
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string | null
+          has_paid: boolean
+          id: string
+          paid_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          has_paid?: boolean
+          id: string
+          paid_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          has_paid?: boolean
+          id?: string
+          paid_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      submissions: {
+        Row: {
+          ai_analysis: Json | null
+          category: string
+          created_at: string
+          domain_data: Json | null
+          id: string
+          image_url: string | null
+          raw_text: string | null
+          risk_score: string | null
+          user_id: string
+        }
+        Insert: {
+          ai_analysis?: Json | null
           category?: string
           created_at?: string
-          feedback_notes?: string | null
+          domain_data?: Json | null
           id?: string
-          raw_content?: string
-          risk_level?: string | null
-          screenshot_url?: string | null
-          status?: string
-          user_email?: string | null
+          image_url?: string | null
+          raw_text?: string | null
+          risk_score?: string | null
+          user_id: string
+        }
+        Update: {
+          ai_analysis?: Json | null
+          category?: string
+          created_at?: string
+          domain_data?: Json | null
+          id?: string
+          image_url?: string | null
+          raw_text?: string | null
+          risk_score?: string | null
+          user_id?: string
         }
         Relationships: []
       }
