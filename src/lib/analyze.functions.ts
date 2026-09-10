@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { analyzeMessage, type AnalysisResult, type RiskLevel } from "./analyze";
 
 type Input = {
@@ -66,6 +67,7 @@ const IMAGE_ONLY_FALLBACK = (category: string): AnalyzeResponse => ({
 });
 
 export const analyzeWithAI = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((input: Input) => {
     const content = String(input?.content ?? "").trim();
     const category = String(input?.category ?? "Other").slice(0, 60);
