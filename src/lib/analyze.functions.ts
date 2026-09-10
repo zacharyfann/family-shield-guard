@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { analyzeMessage, type AnalysisResult, type RiskLevel } from "./analyze";
 
 type Input = {
@@ -66,6 +67,7 @@ const IMAGE_ONLY_FALLBACK = (category: string): AnalyzeResponse => ({
 });
 
 export const analyzeWithAI = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((input: Input) => {
     const content = String(input?.content ?? "").trim();
     const category = String(input?.category ?? "Other").slice(0, 60);
@@ -79,7 +81,16 @@ export const analyzeWithAI = createServerFn({ method: "POST" })
     if (imageBase64.length > 9_000_000) throw new Error("Image too large");
     return { content: content.slice(0, 8000), category, imageBase64, imageMimeType };
   })
-  .handler(async ({ data }): Promise<AnalyzeResponse> => {
+  .handler(async ({ data, context }): Promise<AnalyzeResponse> => {
+    const { data: profile } = await context.supabase
+      .from("profiles")
+      .select("has_paid")
+      .eq("id", context.userId)
+      .maybeSingle();
+    if (!profile?.has_paid) {
+      throw new Error("Lifetime access is required to check messages.");
+    }
+
     const hasText = data.content.length >= 10;
     const fallback = (): AnalyzeResponse =>
       hasText
