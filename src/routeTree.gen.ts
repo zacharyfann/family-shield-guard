@@ -10,33 +10,96 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as DirectoryRouteImport } from './routes/directory'
+import { Route as AuthenticatedCaregiversRouteImport } from './routes/_authenticated/caregivers'
+import { Route as AuthenticatedCheckRouteImport } from './routes/_authenticated/check'
+import { Route as AuthenticatedUpgradeRouteImport } from './routes/_authenticated/upgrade'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DirectoryRoute = DirectoryRouteImport.update({
+  id: '/directory',
+  path: '/directory',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedCaregiversRoute = AuthenticatedCaregiversRouteImport.update({
+  id: '/caregivers',
+  path: '/caregivers',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedCheckRoute = AuthenticatedCheckRouteImport.update({
+  id: '/check',
+  path: '/check',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedUpgradeRoute = AuthenticatedUpgradeRouteImport.update({
+  id: '/upgrade',
+  path: '/upgrade',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/directory': typeof DirectoryRoute
+  '/caregivers': typeof AuthenticatedCaregiversRoute
+  '/check': typeof AuthenticatedCheckRoute
+  '/upgrade': typeof AuthenticatedUpgradeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/directory': typeof DirectoryRoute
+  '/caregivers': typeof AuthenticatedCaregiversRoute
+  '/check': typeof AuthenticatedCheckRoute
+  '/upgrade': typeof AuthenticatedUpgradeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/auth': typeof AuthRoute
+  '/directory': typeof DirectoryRoute
+  '/_authenticated/caregivers': typeof AuthenticatedCaregiversRoute
+  '/_authenticated/check': typeof AuthenticatedCheckRoute
+  '/_authenticated/upgrade': typeof AuthenticatedUpgradeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    '/' | '/auth' | '/directory' | '/caregivers' | '/check' | '/upgrade'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/auth' | '/directory' | '/caregivers' | '/check' | '/upgrade'
+  id:
+    | '__root__'
+    | '/'
+    | '/_authenticated'
+    | '/auth'
+    | '/directory'
+    | '/_authenticated/caregivers'
+    | '/_authenticated/check'
+    | '/_authenticated/upgrade'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  AuthRoute: typeof AuthRoute
+  DirectoryRoute: typeof DirectoryRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +111,71 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/directory': {
+      id: '/directory'
+      path: '/directory'
+      fullPath: '/directory'
+      preLoaderRoute: typeof DirectoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/caregivers': {
+      id: '/_authenticated/caregivers'
+      path: '/caregivers'
+      fullPath: '/caregivers'
+      preLoaderRoute: typeof AuthenticatedCaregiversRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/check': {
+      id: '/_authenticated/check'
+      path: '/check'
+      fullPath: '/check'
+      preLoaderRoute: typeof AuthenticatedCheckRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/upgrade': {
+      id: '/_authenticated/upgrade'
+      path: '/upgrade'
+      fullPath: '/upgrade'
+      preLoaderRoute: typeof AuthenticatedUpgradeRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
+interface AuthenticatedRouteRouteChildren {
+  AuthenticatedCaregiversRoute: typeof AuthenticatedCaregiversRoute
+  AuthenticatedCheckRoute: typeof AuthenticatedCheckRoute
+  AuthenticatedUpgradeRoute: typeof AuthenticatedUpgradeRoute
+}
+
+const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedCaregiversRoute: AuthenticatedCaregiversRoute,
+  AuthenticatedCheckRoute: AuthenticatedCheckRoute,
+  AuthenticatedUpgradeRoute: AuthenticatedUpgradeRoute,
+}
+
+const AuthenticatedRouteRouteWithChildren =
+  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  AuthRoute: AuthRoute,
+  DirectoryRoute: DirectoryRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
