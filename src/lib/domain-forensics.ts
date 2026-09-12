@@ -16,6 +16,11 @@ export function extractHosts(text: string): string[] {
 }
 
 function distance(a: string, b: string): number {
+  if (a.length === b.length) {
+    for (let i = 0; i < a.length - 1; i++) {
+      if (a.slice(0, i) + a[i + 1] + a[i] + a.slice(i + 2) === b) return 1;
+    }
+  }
   let row = Array.from({ length: b.length + 1 }, (_, i) => i);
   for (let i = 1; i <= a.length; i++) {
     const next = [i];
