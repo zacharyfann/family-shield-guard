@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { inspectDomains, type DomainData } from "./domain-forensics";
 import { analyzeMessage, type AnalysisResult, type RiskLevel } from "./analyze";
 
 type Input = {
@@ -9,7 +10,7 @@ type Input = {
   imageMimeType?: string | null;
 };
 
-export type AnalyzeResponse = AnalysisResult & { source: "ai" | "fallback" };
+export type AnalyzeResponse = AnalysisResult & { source: "ai" | "fallback"; domain_data: DomainData };
 
 const SYSTEM_PROMPT = `You are a scam-risk analyst helping ordinary people (often older adults) judge a suspicious message.
 Analyze the message and return a structured risk report.
@@ -21,11 +22,13 @@ Rules:
 - doNot: 3-5 concrete actions to avoid.
 - nextSteps: 3-5 safe ways to verify independently using official numbers or websites the person looks up themselves.
 - headline: one sentence verdict.
+- extractedText: transcribe visible screenshot text literally, including all URLs/domains and brand names. Do not complete or invent partially visible links. Return an empty string when no image is attached.
 Never ask for more personal data. Never claim certainty about identity.`;
 
 const RESPONSE_SCHEMA = {
   type: "object",
   properties: {
+    extractedText: { type: "string" },
     risk: { type: "string", enum: ["high", "medium", "safe"] },
     headline: { type: "string" },
     evidence: { type: "array", items: { type: "string" } },
@@ -33,7 +36,7 @@ const RESPONSE_SCHEMA = {
     doNot: { type: "array", items: { type: "string" } },
     nextSteps: { type: "array", items: { type: "string" } },
   },
-  required: ["risk", "headline", "evidence", "unverifiable", "doNot", "nextSteps"],
+  required: ["extractedText", "risk", "headline", "evidence", "unverifiable", "doNot", "nextSteps"],
 } as const;
 
 function strings(value: unknown): string[] {
@@ -44,6 +47,7 @@ function strings(value: unknown): string[] {
 
 const IMAGE_ONLY_FALLBACK = (category: string): AnalyzeResponse => ({
   source: "fallback",
+  domain_data: inspectDomains("", [], "unavailable", false),
   risk: "medium",
   headline: "The photo could not be reviewed just now, so treat this request as unconfirmed.",
   evidence: [
@@ -91,11 +95,30 @@ export const analyzeWithAI = createServerFn({ method: "POST" })
       throw new Error("Lifetime access is required to check messages.");
     }
 
+    const { data: institutions, error: directoryError } = await context.supabase
+      .from("institutional_directory")
+      .select("brand_name,verified_domain,verified_phone,safe_portal_url");
     const hasText = data.content.length >= 10;
-    const fallback = (): AnalyzeResponse =>
-      hasText
-        ? { ...analyzeMessage(data.content, data.category.toLowerCase()), source: "fallback" }
-        : IMAGE_ONLY_FALLBACK(data.category);
+    const withDomains = (report: AnalysisResult & { source: "ai" | "fallback" }, imageText = ""): AnalyzeResponse => {
+      const domains = inspectDomains(
+        `${data.content}\n${imageText}`, institutions ?? [],
+        data.imageBase64 ? (report.source === "ai" ? "reviewed" : "unavailable") : "not_provided",
+        !directoryError,
+      );
+      const warnings = domains.findings.filter(f => f.status === "mismatch" || f.status === "lookalike");
+      return {
+        ...report,
+        ...(warnings.length ? {
+          risk: "high" as const,
+          headline: "A link does not match the institution's official domain. Treat this request as high risk.",
+          evidence: [...warnings.map(f => f.explanation), ...report.evidence],
+        } : {}),
+        domain_data: domains,
+      };
+    };
+    const fallback = (): AnalyzeResponse => withDomains(hasText
+      ? { ...analyzeMessage(data.content, data.category.toLowerCase()), source: "fallback" }
+      : IMAGE_ONLY_FALLBACK(data.category));
 
     const apiKey = process.env["GEMINI_API_KEY"];
     if (!apiKey) return fallback();
@@ -155,7 +178,7 @@ export const analyzeWithAI = createServerFn({ method: "POST" })
       const unverifiable = strings(parsed["unverifiable"]);
       const base = analyzeMessage(data.content, data.category.toLowerCase());
 
-      return {
+      return withDomains({
         source: "ai",
         risk: risk as RiskLevel,
         headline,
@@ -163,7 +186,7 @@ export const analyzeWithAI = createServerFn({ method: "POST" })
         unverifiable: unverifiable.length ? unverifiable : base.unverifiable,
         doNot: doNot.length ? doNot : base.doNot,
         nextSteps: nextSteps.length ? nextSteps : base.nextSteps,
-      };
+      }, typeof parsed["extractedText"] === "string" ? parsed["extractedText"].slice(0, 16000) : "");
     } catch (err) {
       console.error("AI analysis failed", err);
       return fallback();
