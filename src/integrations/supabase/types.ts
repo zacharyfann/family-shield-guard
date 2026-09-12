@@ -41,6 +41,33 @@ export type Database = {
         }
         Relationships: []
       }
+      institutional_directory: {
+        Row: {
+          brand_name: string
+          created_at: string
+          id: string
+          safe_portal_url: string
+          verified_domain: string
+          verified_phone: string
+        }
+        Insert: {
+          brand_name: string
+          created_at?: string
+          id?: string
+          safe_portal_url: string
+          verified_domain: string
+          verified_phone: string
+        }
+        Update: {
+          brand_name?: string
+          created_at?: string
+          id?: string
+          safe_portal_url?: string
+          verified_domain?: string
+          verified_phone?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
