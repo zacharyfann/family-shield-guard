@@ -5,8 +5,8 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageShell } from "@/components/shell";
 import { getMyProfile } from "@/lib/account.functions";
-import { analyzeWithAI } from "@/lib/analyze.functions";
-import { buildShareText, RISK_LABEL, type AnalysisResult } from "@/lib/analyze";
+import { analyzeWithAI, type AnalyzeResponse } from "@/lib/analyze.functions";
+import { buildShareText, RISK_LABEL } from "@/lib/analyze";
 
 const TITLE = "Check a Message — Second-Look";
 const DESCRIPTION =
@@ -110,7 +110,7 @@ function Checker() {
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [result, setResult] = useState<AnalyzeResponse | null>(null);
   const [usedFallback, setUsedFallback] = useState(false);
   const [copied, setCopied] = useState(false);
   const resultsRef = useRef<HTMLDivElement>(null);
@@ -185,15 +185,16 @@ function Checker() {
       }
 
       if (userId) {
-        await supabase.from("submissions").insert({
+        const { error: saveError } = await supabase.from("submissions").insert({
           user_id: userId,
           category: categoryLabel,
           raw_text: hasText ? trimmed : null,
           image_url: imagePath,
           risk_score: analysis.risk,
-          domain_data: null,
+          domain_data: analysis.domain_data,
           ai_analysis: analysis,
         });
+        if (saveError) setError("Your report is ready, but it could not be saved. Please try again later.");
       }
 
       setUsedFallback(analysis.source === "fallback");
@@ -387,7 +388,7 @@ function Checker() {
             </h2>
             <p className="mt-3 text-base font-medium text-muted-foreground">
               Checked as: {categoryLabel}
-              {file ? " · screenshot reviewed" : ""}
+              {file ? (usedFallback ? " · screenshot review unavailable" : " · screenshot reviewed") : ""}
             </p>
           </div>
 
@@ -397,6 +398,22 @@ function Checker() {
               scam-pattern checks. Please treat it as a starting point and verify independently.
             </p>
           ) : null}
+
+          <section className="mt-8 border-y border-border py-6" aria-label="Domain analysis">
+            <h3 className="font-display text-xl font-bold text-primary">Domain Analysis</h3>
+            {!result.domain_data.directory_available && <p className="mt-3 text-risk-medium">Official domain comparisons are unavailable right now.</p>}
+            {result.domain_data.image_status === "unavailable" && <p className="mt-3">Links in the screenshot could not be checked.</p>}
+            {result.domain_data.findings.length === 0 && <p className="mt-3">No readable domains were found. This does not mean the message is safe.</p>}
+            <ul className="mt-4 space-y-4">
+              {result.domain_data.findings.map(f => <li key={f.hostname} className="break-words">
+                <p className="font-bold">{f.hostname}</p>
+                <p className="text-sm text-muted-foreground">Root domain: {f.root_domain}</p>
+                <p className={f.status === "mismatch" || f.status === "lookalike" ? "mt-1 font-semibold text-risk-high" : "mt-1"}>{f.explanation}</p>
+              </li>)}
+            </ul>
+            <p className="mt-4 text-sm text-muted-foreground">{result.domain_data.limitations}</p>
+            <Link to="/directory" className="mt-4 inline-block font-semibold text-primary underline">Find official contact details</Link>
+          </section>
 
           <h3 className="font-display mt-10 text-xl font-bold text-primary sm:text-2xl">
             Why This Score Matters
