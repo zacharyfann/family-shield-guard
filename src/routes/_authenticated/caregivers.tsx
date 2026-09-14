@@ -134,9 +134,11 @@ function CaregiversPage() {
           </button>
         </form>
 
-        <p className="mt-6 rounded-2xl border-2 border-risk-medium bg-risk-medium-surface px-5 py-4 text-base leading-relaxed">
-          <strong>Please note:</strong> no emails are being sent yet. Your caregiver's details and
-          your on/off choice are saved now, and alerts will use them once sending is switched on.
+        <p className="mt-6 rounded-2xl border-2 border-border bg-card px-5 py-4 text-base leading-relaxed">
+          <strong>How it works:</strong> when alerts are on and a message comes back{" "}
+          <strong>High Risk</strong>, we email your caregiver a short summary — the warning signs we
+          found and a reminder to check with you before any money is sent or any link is opened.
+          Nothing is sent for low-risk messages.
         </p>
       </section>
     </PageShell>
