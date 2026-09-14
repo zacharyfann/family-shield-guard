@@ -456,7 +456,7 @@ function Checker() {
               {result.headline}
             </h2>
             <p className="mt-3 text-base font-medium text-muted-foreground">
-              Checked as: {categoryLabel}
+              Checked as: {resultLabel}
               {file ? (usedFallback ? " · screenshot review unavailable" : " · screenshot reviewed") : ""}
             </p>
           </div>
@@ -465,6 +465,27 @@ function Checker() {
             <p className="mt-4 rounded-2xl border-2 border-risk-medium bg-risk-medium-surface px-4 py-3.5 text-base leading-relaxed">
               The detailed review could not be completed just now, so this report uses our built-in
               scam-pattern checks. Please treat it as a starting point and verify independently.
+            </p>
+          ) : null}
+
+          {result.caregiver_alert === "sent" ? (
+            <p className="mt-4 rounded-2xl border-2 border-risk-safe bg-risk-safe-surface px-4 py-3.5 text-base leading-relaxed">
+              We emailed your caregiver about this high-risk message so they can help you check it.
+            </p>
+          ) : null}
+          {result.caregiver_alert === "disabled" ? (
+            <p className="mt-4 rounded-2xl border-2 border-border bg-card px-4 py-3.5 text-base leading-relaxed">
+              Want someone told automatically when a message looks this risky?{" "}
+              <Link to="/caregivers" className="font-semibold text-primary underline underline-offset-4">
+                Set up caregiver alerts
+              </Link>
+              .
+            </p>
+          ) : null}
+          {result.caregiver_alert === "failed" || result.caregiver_alert === "not_configured" ? (
+            <p className="mt-4 rounded-2xl border-2 border-risk-medium bg-risk-medium-surface px-4 py-3.5 text-base leading-relaxed">
+              Your caregiver could not be emailed this time. Please reach out to them yourself using
+              the buttons below.
             </p>
           ) : null}
 
@@ -495,13 +516,36 @@ function Checker() {
             <ResultBlock title="Safe next steps" items={result.nextSteps} icon="✅" />
           </div>
 
-          <button
-            type="button"
-            onClick={handleShare}
-            className="mt-8 w-full rounded-2xl border-2 border-primary bg-card px-6 py-4 text-lg font-bold text-primary transition-colors hover:bg-secondary"
-          >
-            {copied ? "Copied — paste it into a text message" : "Share with Family"}
-          </button>
+          <div className="mt-8 space-y-3">
+            <button
+              type="button"
+              onClick={handleAskFamily}
+              className="w-full rounded-2xl bg-primary px-6 py-4 text-lg font-bold text-primary-foreground shadow-[var(--shadow-panel)] transition-colors hover:bg-primary/90"
+            >
+              Ask My Family
+            </button>
+            <button
+              type="button"
+              onClick={handleCopyFamily}
+              className="w-full rounded-2xl border-2 border-primary bg-card px-6 py-4 text-lg font-bold text-primary transition-colors hover:bg-secondary"
+            >
+              {copied ? "Copied — paste it into a text message" : "Copy a message for my family"}
+            </button>
+            <button
+              type="button"
+              onClick={handleShare}
+              className="w-full rounded-2xl px-6 py-3 text-base font-semibold text-primary underline underline-offset-4"
+            >
+              Share the full report instead
+            </button>
+            <button
+              type="button"
+              onClick={clearResult}
+              className="w-full rounded-2xl px-6 py-3 text-base font-semibold text-muted-foreground underline underline-offset-4"
+            >
+              Clear this report
+            </button>
+          </div>
         </section>
       ) : null}
     </PageShell>
