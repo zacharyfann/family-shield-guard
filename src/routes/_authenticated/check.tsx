@@ -6,7 +6,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageShell } from "@/components/shell";
 import { getMyProfile } from "@/lib/account.functions";
 import { analyzeWithAI, type AnalyzeResponse } from "@/lib/analyze.functions";
-import { buildShareText, RISK_LABEL } from "@/lib/analyze";
+import { buildFamilyText, buildShareText, RISK_LABEL } from "@/lib/analyze";
+
+const STORAGE_KEY = "second-look:last-analysis";
+
+type StoredAnalysis = { result: AnalyzeResponse; categoryLabel: string; usedFallback: boolean };
 
 const TITLE = "Check a Message — Second-Look";
 const DESCRIPTION =
@@ -113,11 +117,37 @@ function Checker() {
   const [result, setResult] = useState<AnalyzeResponse | null>(null);
   const [usedFallback, setUsedFallback] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [resultLabel, setResultLabel] = useState("Other");
   const resultsRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const runAnalysis = useServerFn(analyzeWithAI);
 
   const categoryLabel = CATEGORIES.find((c) => c.value === category)?.label ?? "Other";
+
+  // Keep the last report visible when the user visits the other tabs and comes back.
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const stored = JSON.parse(raw) as StoredAnalysis;
+      if (!stored?.result?.risk) return;
+      setResult(stored.result);
+      setResultLabel(stored.categoryLabel ?? "Other");
+      setUsedFallback(Boolean(stored.usedFallback));
+    } catch {
+      /* nothing usable saved */
+    }
+  }, []);
+
+  function clearResult() {
+    setResult(null);
+    setCopied(false);
+    try {
+      window.localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      /* storage unavailable */
+    }
+  }
 
   useEffect(() => {
     if (!file) {
@@ -199,7 +229,20 @@ function Checker() {
 
       setUsedFallback(analysis.source === "fallback");
       setResult(analysis);
+      setResultLabel(categoryLabel);
       setCopied(false);
+      try {
+        window.localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify({
+            result: analysis,
+            categoryLabel,
+            usedFallback: analysis.source === "fallback",
+          } satisfies StoredAnalysis),
+        );
+      } catch {
+        /* storage unavailable */
+      }
       window.setTimeout(
         () => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
         250,
@@ -213,7 +256,7 @@ function Checker() {
 
   async function handleShare() {
     if (!result) return;
-    const text = buildShareText(result, categoryLabel);
+    const text = buildShareText(result, resultLabel);
     try {
       if (navigator.share) {
         await navigator.share({ title: "Second-Look risk report", text });
@@ -224,6 +267,32 @@ function Checker() {
       window.setTimeout(() => setCopied(false), 3000);
     } catch {
       /* user cancelled sharing */
+    }
+  }
+
+  /** Ask My Family: text it straight to an adult child, or copy it ready to paste. */
+  async function handleAskFamily() {
+    if (!result) return;
+    const text = buildFamilyText(result, resultLabel);
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "Can you look at this message?", text });
+        return;
+      }
+      window.location.href = `sms:?&body=${encodeURIComponent(text)}`;
+    } catch {
+      /* sharing cancelled — the copy button below still works */
+    }
+  }
+
+  async function handleCopyFamily() {
+    if (!result) return;
+    try {
+      await navigator.clipboard.writeText(buildFamilyText(result, resultLabel));
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 4000);
+    } catch {
+      setError("Your device would not let us copy that. You can select the text above instead.");
     }
   }
 
@@ -387,7 +456,7 @@ function Checker() {
               {result.headline}
             </h2>
             <p className="mt-3 text-base font-medium text-muted-foreground">
-              Checked as: {categoryLabel}
+              Checked as: {resultLabel}
               {file ? (usedFallback ? " · screenshot review unavailable" : " · screenshot reviewed") : ""}
             </p>
           </div>
@@ -396,6 +465,27 @@ function Checker() {
             <p className="mt-4 rounded-2xl border-2 border-risk-medium bg-risk-medium-surface px-4 py-3.5 text-base leading-relaxed">
               The detailed review could not be completed just now, so this report uses our built-in
               scam-pattern checks. Please treat it as a starting point and verify independently.
+            </p>
+          ) : null}
+
+          {result.caregiver_alert === "sent" ? (
+            <p className="mt-4 rounded-2xl border-2 border-risk-safe bg-risk-safe-surface px-4 py-3.5 text-base leading-relaxed">
+              We emailed your caregiver about this high-risk message so they can help you check it.
+            </p>
+          ) : null}
+          {result.caregiver_alert === "disabled" ? (
+            <p className="mt-4 rounded-2xl border-2 border-border bg-card px-4 py-3.5 text-base leading-relaxed">
+              Want someone told automatically when a message looks this risky?{" "}
+              <Link to="/caregivers" className="font-semibold text-primary underline underline-offset-4">
+                Set up caregiver alerts
+              </Link>
+              .
+            </p>
+          ) : null}
+          {result.caregiver_alert === "failed" || result.caregiver_alert === "not_configured" ? (
+            <p className="mt-4 rounded-2xl border-2 border-risk-medium bg-risk-medium-surface px-4 py-3.5 text-base leading-relaxed">
+              Your caregiver could not be emailed this time. Please reach out to them yourself using
+              the buttons below.
             </p>
           ) : null}
 
@@ -426,13 +516,36 @@ function Checker() {
             <ResultBlock title="Safe next steps" items={result.nextSteps} icon="✅" />
           </div>
 
-          <button
-            type="button"
-            onClick={handleShare}
-            className="mt-8 w-full rounded-2xl border-2 border-primary bg-card px-6 py-4 text-lg font-bold text-primary transition-colors hover:bg-secondary"
-          >
-            {copied ? "Copied — paste it into a text message" : "Share with Family"}
-          </button>
+          <div className="mt-8 space-y-3">
+            <button
+              type="button"
+              onClick={handleAskFamily}
+              className="w-full rounded-2xl bg-primary px-6 py-4 text-lg font-bold text-primary-foreground shadow-[var(--shadow-panel)] transition-colors hover:bg-primary/90"
+            >
+              Ask My Family
+            </button>
+            <button
+              type="button"
+              onClick={handleCopyFamily}
+              className="w-full rounded-2xl border-2 border-primary bg-card px-6 py-4 text-lg font-bold text-primary transition-colors hover:bg-secondary"
+            >
+              {copied ? "Copied — paste it into a text message" : "Copy a message for my family"}
+            </button>
+            <button
+              type="button"
+              onClick={handleShare}
+              className="w-full rounded-2xl px-6 py-3 text-base font-semibold text-primary underline underline-offset-4"
+            >
+              Share the full report instead
+            </button>
+            <button
+              type="button"
+              onClick={clearResult}
+              className="w-full rounded-2xl px-6 py-3 text-base font-semibold text-muted-foreground underline underline-offset-4"
+            >
+              Clear this report
+            </button>
+          </div>
         </section>
       ) : null}
     </PageShell>

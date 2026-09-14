@@ -110,9 +110,32 @@ export const RISK_LABEL: Record<RiskLevel, string> = {
   safe: "Likely Safe",
 };
 
+/** Short, warm message an older parent can text straight to their adult child. */
+export function buildFamilyText(result: AnalysisResult, category: string): string {
+  const opener =
+    result.risk === "high"
+      ? "I got a message that looks like a scam and I'd like your help before I do anything."
+      : result.risk === "medium"
+        ? "I got a message I'm not sure about and I'd like your opinion before I do anything."
+        : "I got a message I checked, and it looks okay. Just so you know.";
+
+  return [
+    `Hi, it's Mom/Dad. ${opener}`,
+    "",
+    `I checked it with Second-Look and it says: ${RISK_LABEL[result.risk]} (${category}).`,
+    result.headline,
+    "",
+    "What it flagged:",
+    ...result.evidence.slice(0, 3).map((e) => `- ${e}`),
+    "",
+    "I have not sent any money, clicked any link, or shared any code.",
+    "Can you take a look and tell me what you think?",
+  ].join("\n");
+}
+
 export function buildShareText(result: AnalysisResult, category: string): string {
   return [
-    `FamilyShield check: ${RISK_LABEL[result.risk]} (${category})`,
+    `Second-Look check: ${RISK_LABEL[result.risk]} (${category})`,
     result.headline,
     "",
     "Warning signs:",

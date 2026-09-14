@@ -10,7 +10,11 @@ type Input = {
   imageMimeType?: string | null;
 };
 
-export type AnalyzeResponse = AnalysisResult & { source: "ai" | "fallback"; domain_data: DomainData };
+export type AnalyzeResponse = AnalysisResult & {
+  source: "ai" | "fallback";
+  domain_data: DomainData;
+  caregiver_alert?: "sent" | "disabled" | "not_configured" | "failed";
+};
 
 const SYSTEM_PROMPT = `You are a scam-risk analyst helping ordinary people (often older adults) judge a suspicious message.
 Analyze the message and return a structured risk report.
@@ -99,14 +103,17 @@ export const analyzeWithAI = createServerFn({ method: "POST" })
       .from("institutional_directory")
       .select("brand_name,verified_domain,verified_phone,safe_portal_url");
     const hasText = data.content.length >= 10;
-    const withDomains = (report: AnalysisResult & { source: "ai" | "fallback" }, imageText = ""): AnalyzeResponse => {
+    const withDomains = async (
+      report: AnalysisResult & { source: "ai" | "fallback" },
+      imageText = "",
+    ): Promise<AnalyzeResponse> => {
       const domains = inspectDomains(
         `${data.content}\n${imageText}`, institutions ?? [],
         data.imageBase64 ? (report.source === "ai" ? "reviewed" : "unavailable") : "not_provided",
         !directoryError,
       );
       const warnings = domains.findings.filter(f => f.status === "mismatch" || f.status === "lookalike");
-      return {
+      const final: AnalyzeResponse = {
         ...report,
         ...(warnings.length ? {
           risk: "high" as const,
@@ -115,8 +122,22 @@ export const analyzeWithAI = createServerFn({ method: "POST" })
         } : {}),
         domain_data: domains,
       };
+
+      if (final.risk === "high") {
+        const { sendCaregiverAlert } = await import("./caregiver-alert.server");
+        const email = typeof context.claims["email"] === "string" ? (context.claims["email"] as string) : null;
+        final.caregiver_alert = await sendCaregiverAlert(
+          context.supabase,
+          context.userId,
+          email,
+          final,
+          data.category,
+        );
+      }
+
+      return final;
     };
-    const fallback = (): AnalyzeResponse => withDomains(hasText
+    const fallback = (): Promise<AnalyzeResponse> => withDomains(hasText
       ? { ...analyzeMessage(data.content, data.category.toLowerCase()), source: "fallback" }
       : IMAGE_ONLY_FALLBACK(data.category));
 
