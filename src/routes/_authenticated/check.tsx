@@ -6,7 +6,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageShell } from "@/components/shell";
 import { getMyProfile } from "@/lib/account.functions";
 import { analyzeWithAI, type AnalyzeResponse } from "@/lib/analyze.functions";
-import { buildShareText, RISK_LABEL } from "@/lib/analyze";
+import { buildFamilyText, buildShareText, RISK_LABEL } from "@/lib/analyze";
+
+const STORAGE_KEY = "second-look:last-analysis";
+
+type StoredAnalysis = { result: AnalyzeResponse; categoryLabel: string; usedFallback: boolean };
 
 const TITLE = "Check a Message — Second-Look";
 const DESCRIPTION =
@@ -113,11 +117,37 @@ function Checker() {
   const [result, setResult] = useState<AnalyzeResponse | null>(null);
   const [usedFallback, setUsedFallback] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [resultLabel, setResultLabel] = useState("Other");
   const resultsRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const runAnalysis = useServerFn(analyzeWithAI);
 
   const categoryLabel = CATEGORIES.find((c) => c.value === category)?.label ?? "Other";
+
+  // Keep the last report visible when the user visits the other tabs and comes back.
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const stored = JSON.parse(raw) as StoredAnalysis;
+      if (!stored?.result?.risk) return;
+      setResult(stored.result);
+      setResultLabel(stored.categoryLabel ?? "Other");
+      setUsedFallback(Boolean(stored.usedFallback));
+    } catch {
+      /* nothing usable saved */
+    }
+  }, []);
+
+  function clearResult() {
+    setResult(null);
+    setCopied(false);
+    try {
+      window.localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      /* storage unavailable */
+    }
+  }
 
   useEffect(() => {
     if (!file) {
