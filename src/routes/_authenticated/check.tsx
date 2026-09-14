@@ -229,7 +229,20 @@ function Checker() {
 
       setUsedFallback(analysis.source === "fallback");
       setResult(analysis);
+      setResultLabel(categoryLabel);
       setCopied(false);
+      try {
+        window.localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify({
+            result: analysis,
+            categoryLabel,
+            usedFallback: analysis.source === "fallback",
+          } satisfies StoredAnalysis),
+        );
+      } catch {
+        /* storage unavailable */
+      }
       window.setTimeout(
         () => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
         250,
@@ -243,7 +256,7 @@ function Checker() {
 
   async function handleShare() {
     if (!result) return;
-    const text = buildShareText(result, categoryLabel);
+    const text = buildShareText(result, resultLabel);
     try {
       if (navigator.share) {
         await navigator.share({ title: "Second-Look risk report", text });
@@ -254,6 +267,32 @@ function Checker() {
       window.setTimeout(() => setCopied(false), 3000);
     } catch {
       /* user cancelled sharing */
+    }
+  }
+
+  /** Ask My Family: text it straight to an adult child, or copy it ready to paste. */
+  async function handleAskFamily() {
+    if (!result) return;
+    const text = buildFamilyText(result, resultLabel);
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "Can you look at this message?", text });
+        return;
+      }
+      window.location.href = `sms:?&body=${encodeURIComponent(text)}`;
+    } catch {
+      /* sharing cancelled — the copy button below still works */
+    }
+  }
+
+  async function handleCopyFamily() {
+    if (!result) return;
+    try {
+      await navigator.clipboard.writeText(buildFamilyText(result, resultLabel));
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 4000);
+    } catch {
+      setError("Your device would not let us copy that. You can select the text above instead.");
     }
   }
 
