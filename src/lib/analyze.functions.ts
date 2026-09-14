@@ -10,7 +10,11 @@ type Input = {
   imageMimeType?: string | null;
 };
 
-export type AnalyzeResponse = AnalysisResult & { source: "ai" | "fallback"; domain_data: DomainData };
+export type AnalyzeResponse = AnalysisResult & {
+  source: "ai" | "fallback";
+  domain_data: DomainData;
+  caregiver_alert?: "sent" | "disabled" | "not_configured" | "failed";
+};
 
 const SYSTEM_PROMPT = `You are a scam-risk analyst helping ordinary people (often older adults) judge a suspicious message.
 Analyze the message and return a structured risk report.
